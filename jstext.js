@@ -11,7 +11,7 @@
 		padding: "0px",
 		margin: "0px",
 		border: "none",
-		"font-familly": "Arial",
+		"font-family": "Arial",
 		"font-size": "12px",
 		"font-weight": "normal",
 		"font-style": "normal",
@@ -36,7 +36,7 @@
 
 	var cache = {};
 	$.jsText.getTextMeasure = function(text, css) {
-		var key = css["font-familly"] + "/" + css["font-size"] + "/" + css["font-weight"] + "/" + css["font-style"] + "/" + css["text-decoration"] + "/" + text;
+		var key = css["font-family"] + "/" + css["font-size"] + "/" + css["font-weight"] + "/" + css["font-style"] + "/" + css["text-decoration"] + "/" + text;
 		var cachedResult = cache[key];
 		if(cachedResult == null) {
 			cachedResult = $.jsText.computeTextMeasure(text, css);
