@@ -18,16 +18,18 @@
 		"text-decoration": "none"
 	};
 
-	var MEASURE_REPEAT_X = 1;
-
 	$.jsText.computeTextMeasure = function(text, css) {
-		text = (new Array(MEASURE_REPEAT_X + 1)).join(text);
 		var span = $("<span/>")
 			.text(text)
 			.css($.extend({}, MEASURE_HELPER_PROPERTIES, css));
 		$(document.body).append(span);
+		
+		var w1 = span.width();
+		span.text(text + text);
+		var w2 = span.width();
+		
 		var result = {
-			w: (span.width() / MEASURE_REPEAT_X),
+			w: w2 - w1,
 			h: span.height()
 		};
 		span.remove();
