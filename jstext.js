@@ -14,7 +14,8 @@
 		"font-familly": "Arial",
 		"font-size": "12px",
 		"font-weight": "normal",
-		"font-style": "regular"
+		"font-style": "regular",
+		"text-decoration": "none"
 	};
 
 	var MEASURE_REPEAT_X = 1;
@@ -35,7 +36,7 @@
 
 	var cache = {};
 	$.jsText.getTextMeasure = function(text, css) {
-		var key = css["font-familly"] + "/" + css["font-size"] + "/" + css["font-weight"] + "/" + css["font-style"] + "/" + text;
+		var key = css["font-familly"] + "/" + css["font-size"] + "/" + css["font-weight"] + "/" + css["font-style"] + "/" + css["text-decoration"] + "/" + text;
 		var cachedResult = cache[key];
 		if(cachedResult == null) {
 			cachedResult = $.jsText.computeTextMeasure(text, css);
