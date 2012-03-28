@@ -54,7 +54,50 @@
 		});
 	};
 
-	Flow = function(text, css) {
+	var Layout = function(width, height, lines, lineWidths, lineHeight) {
+		this.lineHeight = lineHeight;
+		this.lines = lines;
+		this.lineWidths = lineWidths;
+		this.width = width;
+		this.height = height;
+	};
+	
+	Layout.prototype.render = function(horizontalAlign, verticalAlign, callback) {
+		var y;
+		if(this.height == null || verticalAlign != "bottom" && verticalAlign != "middle") {
+			y = 0;
+		}
+		else {
+			var totalHeight = this.lines.length * this.lineHeight;
+			if(verticalAlign == "bottom") {
+				y = this.height - totalHeight;
+			}
+			else { // middle
+				y = (this.height - totalHeight) / 2;
+			}
+		}
+		
+		for(var i = 0; i < this.lines.length; i++) {
+			var line = this.lines[i];
+			var x;
+			if(this.width == null || horizontalAlign != "right" && horizontalAlign != "center") {
+				x = 0;
+			}
+			else {
+				var lineWidth = this.lineWidths[i];
+				if(horizontalAlign == "right") {
+					x = this.width - lineWidth;
+				}
+				else { // center
+					x = (this.width - lineWidth) / 2;
+				}
+			}
+			callback(line, x, y, lineWidth);
+			y += this.lineHeight;
+		}
+	};
+	
+	var Flow = function(text, css) {
 		var lineHeight = $.jsText.getTextMeasure("a", css).h;
 		var spaceWidth = $.jsText.getTextMeasure("a a", css).w - $.jsText.getTextMeasure("aa", css).w + 0.5;
 		var words = $.map($.jsText.splitWords(text), function(word) {
@@ -86,6 +129,7 @@
 			if(options.useThreeDots == false) useThreeDots = false;
 			
 			var lines = [];
+			var lineWidths = [];
 			var currentLine = "";
 			var remainingSpace = width;
 			var lastLine = (maxLines == 1);
@@ -99,6 +143,12 @@
 						currentLine += "...";
 					}
 					lines.push(currentLine);
+					if(options.exactLineWidths) {
+						lineWidths.push($.jsText.getTextMeasure(currentLine, css).w);
+					}
+					else {
+						lineWidths.push(width - remainingSpace);
+					}
 				}
 				remainingSpace = width;
 				currentLine = "";
@@ -148,10 +198,7 @@
 
 			finalizeCurrentLine();
 			
-			return {
-				lineHeight: lineHeight,
-				lines: lines
-			};
+			return new Layout(width, options.height, lines, lineWidths, lineHeight);
 		};
 	};
 	
