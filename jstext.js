@@ -14,7 +14,7 @@
 		"font-familly": "Arial",
 		"font-size": "12px",
 		"font-weight": "normal",
-		"font-style": "regular",
+		"font-style": "normal",
 		"text-decoration": "none"
 	};
 
