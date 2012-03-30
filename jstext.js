@@ -4,7 +4,7 @@
 	var trim = function(string) {
 		return string.replace(/^\s+|\s+$/g, ''); 
 	};
-
+	var textMeasuresCache = {};
 	var MEASURE_HELPER_PROPERTIES = {
 		position: "absolute",
 		top: "10px",
@@ -18,6 +18,16 @@
 		"text-decoration": "none"
 	};
 
+	/**
+	 * Measures text.
+	 *
+	 * @param text 
+	 *            The text to measure
+	 * @param css 
+	 *            A map of the css properties to use for the measure. The default values are in the MEASURE_HELPER_PROPERTIES constant.
+	 * @return
+	 *            {w: <int>, h: <int>}
+	 */
 	$.jsText.computeTextMeasure = function(text, css) {
 		var span = $("<span/>")
 			.text(text)
@@ -36,67 +46,51 @@
 		return result;
 	};
 
-	var cache = {};
+	/**
+	 * Measures text.
+	 *
+	 * See $.jsText.computeTextMeasure for the contract, but this method caches the results
+	 */
 	$.jsText.getTextMeasure = function(text, css) {
 		var key = css["font-family"] + "/" + css["font-size"] + "/" + css["font-weight"] + "/" + css["font-style"] + "/" + css["text-decoration"] + "/" + text;
-		var cachedResult = cache[key];
+		var cachedResult = textMeasuresCache[key];
 		if(cachedResult == null) {
 			cachedResult = $.jsText.computeTextMeasure(text, css);
-			cache[key] = cachedResult;
+			textMeasuresCache[key] = cachedResult;
 		}
 		return cachedResult;
 	};
-	//$.jsText.getTextMeasure = $.jsText.computeTextMeasure;
 	
+	/**
+	 * Splits a text in words.
+	 * 
+	 * @param text 
+	 *            The text to split in words. Whitespace characters are space, tab, carriage return and line break
+	 * @return
+	 *            An array of strings containing the words
+	 */
 	$.jsText.splitWords = function(text) {
 		return $.map(text.replace(/[\t\n\r]/g, " ").split(" "), function(word) {
 			return word == "" ? null : word;
 		});
 	};
 
-	var Layout = function(width, height, lines, lineWidths, lineHeight) {
-		this.lineHeight = lineHeight;
-		this.lines = lines;
-		this.lineWidths = lineWidths;
-		this.width = width;
-		this.height = height;
+	/**
+	 * Creates an instance of flow
+	 * The Flow is the central object which containt all necessary data about a text's properties to be able to perform text layout in different conditions
+	 * It's main and only feature is to create a Layout for given constraints.
+	 * See layout method of the Flow class, and the Layout class.
+	 * @param text 
+	 *            The text to create a flow from
+	 * @param css 
+	 *            A map of the css properties to use for this flow. The default values are in the MEASURE_HELPER_PROPERTIES constant.
+	 * @return
+	 *            An new Flow, capable of performing layouts of the provided text and css properties
+	 */
+	$.jsText.flow = function(text, css) {
+		return new Flow(text, css);
 	};
-	
-	Layout.prototype.render = function(horizontalAlign, verticalAlign, callback) {
-		var y;
-		if(this.height == null || verticalAlign != "bottom" && verticalAlign != "middle") {
-			y = 0;
-		}
-		else {
-			var totalHeight = this.lines.length * this.lineHeight;
-			if(verticalAlign == "bottom") {
-				y = this.height - totalHeight;
-			}
-			else { // middle
-				y = (this.height - totalHeight) / 2;
-			}
-		}
-		
-		for(var i = 0; i < this.lines.length; i++) {
-			var line = this.lines[i];
-			var x;
-			if(this.width == null || horizontalAlign != "right" && horizontalAlign != "center") {
-				x = 0;
-			}
-			else {
-				var lineWidth = this.lineWidths[i];
-				if(horizontalAlign == "right") {
-					x = this.width - lineWidth;
-				}
-				else { // center
-					x = (this.width - lineWidth) / 2;
-				}
-			}
-			callback(line, x, y, lineWidth);
-			y += this.lineHeight;
-		}
-	};
-	
+
 	var Flow = function(text, css) {
 		var lineHeight = $.jsText.getTextMeasure("a", css).h;
 		var spaceWidth = $.jsText.getTextMeasure("a a", css).w - $.jsText.getTextMeasure("aa", css).w + 0.5;
@@ -116,6 +110,30 @@
 			};
 		});
 		
+		/**
+		 * Performs a layout of this flow, taking into account the provided constraints.
+		 * 
+		 * @param options
+		 *            A map of properties which provides the different options of the layout operation.
+		 * 				  - width: required, in pixels. the maximum available width for the text. 
+		 *                         The generated layout guarantees that rendering any of the generated 
+		 *                         lines with the css properties of the flow will not be larger than the width.
+		 *                - maxLines: optional. If provided, the generated layout will not contain more than
+		 *                         this number of lines, croping the text if necessary
+		 *                - height: optional, in pixels. If provided, rendering all the lines of the flow with the 
+		 *                         with the css properties of the flow will not require more space than the provided
+		 *                         height. The text will be croped if necessary.
+		 *                - useThreeDots: optional, default is true. if the text has to be croped, three character 
+		 *                         will be present at the end of the croped text (possibily reducing the amount of 
+		 *                         text remaining after the croping).
+		 *                - exactLineWidths: optional, default is false. the line width will be computed more accurately, 
+		 *                         but it will take more CPU. Use this option only if you intend to use the lineWidth
+		 *                         parameter of the callback of the render method of the generated layout and need
+		 *                         perfectly accurate line width measures.
+		 *                          
+		 * @return
+		 *            An instance of Layout, which represents the appropriate layout of the text given the provided options.
+		 */
 		this.layout = function(options) {
 			var width = options.width;
 			if(width == null) throw "Missing option width";
@@ -201,9 +219,80 @@
 			return new Layout(width, options.height, lines, lineWidths, lineHeight);
 		};
 	};
-	
-	$.jsText.flow = function(text, css) {
-		return new Flow(text, css);
-	};
 
+	/**
+	 * Represents the layout of a text under some constraints.
+	 */
+	var Layout = function(width, height, lines, lineWidths, lineHeight) {
+		/**
+		 * The height in pixel of a line in this layout.
+		 */
+		this.lineHeight = lineHeight;
+		/**
+		 * The lines of the layout, as an Array of Strings
+		 */
+		this.lines = lines;
+		/**
+		 * The widths of the lines of the layout, as an Array of Integers
+		 */
+		this.lineWidths = lineWidths;
+		/**
+		 * The width constraint used to generate this layout
+		 */
+		this.width = width;
+		/**
+		 * The width constraint used to generate this, if any, or null otherwise
+		 */
+		this.height = height;
+	};
+	
+	/**
+	 * Renders this layout width the provided alignment properties.
+	 * 
+	 * @param horizontalAlign 
+	 *            "top", "bottom", or "middle". The argument will be ignored if the layout has been generated without the height option.
+	 * @param verticalAlign 
+	 *            "left", "right", or "center".
+	 * @param callback 
+	 *            a callback function that performs the rendering of a line, at the provided coordinates.
+	 *            callback(line, x, y, lineWidth)
+	 *                - line: the text to render for this line (String)
+	 *                - x: the x coordinate of the top left corner of the rectangle containing the text of the line, relative to the constraining box
+	 *                - y: the y coordinate of the top left corner of the rectangle containing the text of the line, relative to the constraining box
+	 *                - lineWidth: the with of the line (value can be an approximation, see exactLineWidths option of the layout method of the Flow class)
+	 */
+	Layout.prototype.render = function(horizontalAlign, verticalAlign, callback) {
+		var y;
+		if(this.height == null || verticalAlign != "bottom" && verticalAlign != "middle") {
+			y = 0;
+		}
+		else {
+			var totalHeight = this.lines.length * this.lineHeight;
+			if(verticalAlign == "bottom") {
+				y = this.height - totalHeight;
+			}
+			else { // middle
+				y = (this.height - totalHeight) / 2;
+			}
+		}
+		
+		for(var i = 0; i < this.lines.length; i++) {
+			var line = this.lines[i];
+			var x;
+			if(this.width == null || horizontalAlign != "right" && horizontalAlign != "center") {
+				x = 0;
+			}
+			else {
+				var lineWidth = this.lineWidths[i];
+				if(horizontalAlign == "right") {
+					x = this.width - lineWidth;
+				}
+				else { // center
+					x = (this.width - lineWidth) / 2;
+				}
+			}
+			callback(line, x, y, lineWidth);
+			y += this.lineHeight;
+		}
+	};
 })(jQuery);
