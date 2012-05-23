@@ -11,8 +11,11 @@ html {
 	font-style: regular;
 }
 
+.ui-resizable-handle {
+}
+
 .ui-resizable-handle:hover {
-	border: 1px dashed black;
+	background-color: teal;
 }
 		</style>
         <title>jsText Library Example</title>
@@ -35,7 +38,7 @@ $(function() {
 		target.children(".line").remove();
 		var top = margin;
 		$.each(layout.lines, function() {
-			target.append($("<div class='line' style='position: absolute; top: " + top + "px; left: " + margin + "px'/>").text("" + this));
+			target.append($("<div class='line' style='position: absolute; top: " + top + "px; left: " + margin + "px; white-space: nowrap'/>").text("" + this));
 			top += layout.lineHeight;
 		});
 	};
@@ -46,6 +49,7 @@ $(function() {
         </script>
     </head>
     <body style="padding: 10px; margin: 0px">
-		<div id="flow-target" style="width: 280px; height: 150px; border: 1px solid red; position: absolute; top: 8px; left: 8px;"></div>
+    	<p>Resize the box to see text layout update.</p>
+		<div id="flow-target" style="width: 280px; height: 150px; border: 1px solid red;"></div>
     </body>
 </html>

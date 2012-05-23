@@ -17,6 +17,18 @@
 		"font-style": "normal",
 		"text-decoration": "none"
 	};
+	
+	var INTERNET_EXPLORER_VERSION = (function() {
+		var rv = null; // Return value assumes failure.
+		if (navigator.appName == 'Microsoft Internet Explorer')
+		{
+		 var ua = navigator.userAgent;
+		 var re  = new RegExp("MSIE ([0-9]{1,}[\.0-9]{0,})");
+		 if (re.exec(ua) != null)
+			rv = parseFloat( RegExp.$1 );
+		}
+		return rv;
+	})();
 
 	/**
 	 * Measures text.
@@ -91,9 +103,15 @@
 		return new Flow(text, css);
 	};
 
+	var SPACE_WIDTH_DELTA = INTERNET_EXPLORER_VERSION == null
+		? 0.5
+		: INTERNET_EXPLORER_VERSION >= 9
+			? 4
+			: 0.5;
+	
 	var Flow = function(text, css) {
 		var lineHeight = $.jsText.getTextMeasure("a", css).h;
-		var spaceWidth = $.jsText.getTextMeasure("a a", css).w - $.jsText.getTextMeasure("aa", css).w + 0.5;
+		var spaceWidth = $.jsText.getTextMeasure("a a", css).w - $.jsText.getTextMeasure("aa", css).w + SPACE_WIDTH_DELTA;
 		var words = $.map($.jsText.splitWords(text), function(word) {
 			var wordWidth = 0;
 			return {
