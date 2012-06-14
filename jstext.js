@@ -163,7 +163,7 @@ Copyright © 2012 by Samuel Rossille
 			var maxLines = null;
 			if(options.maxLines != null) maxLines = options.maxLines;
 			if(options.height != null) {
-				var heightMaxLines = Math.floor(options.height / lineHeight);
+				var heightMaxLines = Math.max(Math.floor(options.height / lineHeight), 0);
 				if(maxLines == null || heightMaxLines < maxLines) maxLines = heightMaxLines;
 			}
 			var useThreeDots = true;

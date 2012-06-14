@@ -75,4 +75,16 @@ $(function() {
 			equal(line, "Hey!");
 		});
 	})
+	
+	test("negative height", function() {
+		var flow = $.jsText.flow("Hey!", {});
+		var layout = flow.layout({width: 1000, height: -500});
+		equal(layout.lines.length, 0, "Layout should have zero lines");
+	});
+	
+	test("negative width", function() {
+		var flow = $.jsText.flow("Hey!", {});
+		var layout = flow.layout({width: -500, height: 200});
+		equal(layout.lines.length, 0, "Layout should have zero lines");
+	});
 });
