@@ -67,4 +67,12 @@ $(function() {
 		layout = flow.layout({width: 1});
 		deepEqual(layout.lines, [], "low limit width (1) produces zero lines without crashing");
 	});
+	
+	test("unneeded dots", function() {
+		var flow = $.jsText.flow("Hey!", {});
+		var layout = flow.layout({width: 1000, maxLines: 1});
+		layout.render("left", "top", function(line, x, y, lineWidth) {
+			equal(line, "Hey!");
+		});
+	})
 });

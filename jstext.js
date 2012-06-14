@@ -176,11 +176,11 @@ Copyright © 2012 by Samuel Rossille
 			var lastLine = (maxLines == 1);
 			var maxLinesUsed = (maxLines == 0);
 
-			var finalizeCurrentLine = function() {
+			var finalizeCurrentLine = function(textRemaining) {
 				if(maxLinesUsed) return;
 				currentLine = trim(currentLine);
 				if(currentLine.length > 0) {
-					if(lastLine && useThreeDots) {
+					if(lastLine && textRemaining && useThreeDots) {
 						currentLine += "...";
 					}
 					lines.push(currentLine);
@@ -206,19 +206,20 @@ Copyright © 2012 by Samuel Rossille
 				}
 			};
 			
-			$.each(words, function() {
-				if(maxLinesUsed) return;
-				if(this.w > remainingSpace) { // not enough place for the current word
-					if(this.w > width) { // word does not fit in a line, let's handle it at letter level
-						$.each(this.l, function() {
-							if(maxLinesUsed) return;
+			var lastWordIndex = null;
+			$.each(words, function(wordIndex, word) {
+				if(maxLinesUsed) return false;
+				if(word.w > remainingSpace) { // not enough place for the current word
+					if(word.w > width) { // word does not fit in a line, let's handle it at letter level
+						$.each(word.l, function(letterIndex) {
+							if(maxLinesUsed) return false;
 							if(this.w > remainingSpace) { // not enough place for the current letter
 								if(this.w > width) { // if the letter does not fit in a line, let's drop the letter (limit case handling)
-									return;
+									return true;
 								}
 								else { // letter fits in a line, let's start the next line
-									finalizeCurrentLine();
-									if(maxLinesUsed) return;
+									finalizeCurrentLine(wordIndex < words.length - 1 || letterIndex < word.l.length);
+									if(maxLinesUsed) return false;
 								}
 							}
 							currentLine += this.e;
@@ -226,18 +227,20 @@ Copyright © 2012 by Samuel Rossille
 						});
 						currentLine += " ";
 						remainingSpace -= spaceWidth;
-						return;
+						return true;
 					}
 					else { // word fits in a line, let's start the next line
-						finalizeCurrentLine();
-						if(maxLinesUsed) return;
+						finalizeCurrentLine(wordIndex < words.length - 1);
+						if(maxLinesUsed) return false;
 					}
 				}
-				currentLine += (this.e + " ");
-				remainingSpace -= (this.w + spaceWidth);
+				currentLine += (word.e + " ");
+				remainingSpace -= (word.w + spaceWidth);
+				
+				lastWordIndex = wordIndex;
 			});
 
-			finalizeCurrentLine();
+			finalizeCurrentLine(lastWordIndex != null && lastWordIndex < words.length - 1);
 			
 			return new Layout(width, options.height, lines, lineWidths, lineHeight);
 		};
