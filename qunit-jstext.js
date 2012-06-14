@@ -1,3 +1,8 @@
+/*
+
+Copyright © 2012 by Samuel Rossille
+
+*/
 $(function() {
 
 	module("$.jsText");
