@@ -1,14 +1,15 @@
 /*
-
-Copyright © 2012 by Samuel Rossille
-
+*
+* Copyright � 2012 by Samuel Rossille
+* 
+* Updates:
+*     * 2 Oct 2012 - Julien Durand: support a flow of formatted sections.
+*
 */
+
 (function($, undefined) {
 	$.jsText = $.jsText || {};
 	
-	var trim = function(string) {
-		return string.replace(/^\s+|\s+$/g, ''); 
-	};
 	var textMeasuresCache = {};
 	var MEASURE_HELPER_PROPERTIES = {
 		position: "absolute",
@@ -79,17 +80,58 @@ Copyright © 2012 by Samuel Rossille
 	};
 	
 	/**
+	 * Isolates line breaks in distinct sections
+	 * 
+	 *  @param text
+	 *  		The text to split in sections
+	 *  @return 
+	 *  		A array of strings
+	 */
+	$.jsText.splitSection = function(text){ 
+		var sections = [];
+		var stringBuffer = [];
+		for(var index in text){
+			var char = text[index];
+			switch(char){
+				case '\t':
+					stringBuffer.push("    ");
+					break;
+				case '\r': // controls flows to next case
+				case '\n':
+					sections.push(stringBuffer.join(""), char);
+					stringBuffer = [];
+					break;
+				default:
+				    stringBuffer.push(char);
+			}
+		}
+		sections.push(stringBuffer.join(""));
+		return sections;
+	};
+	
+	/**
 	 * Splits a text in words.
 	 * 
 	 * @param text 
-	 *            The text to split in words. Whitespace characters are space, tab, carriage return and line break
+	 *            The text to split in words.
 	 * @return
 	 *            An array of strings containing the words
 	 */
 	$.jsText.splitWords = function(text) {
-		return $.map(text.replace(/[\t\n\r]/g, " ").split(" "), function(word) {
-			return word == "" ? null : word;
-		});
+		var words = [];
+		var stringBuffer = [];
+		for(var index in text){
+			var char = text[index];
+			if(char == ' '){
+				stringBuffer.push(' ');
+			    words.push(stringBuffer.join(""));
+			    stringBuffer = [];
+			} else {
+				stringBuffer.push(char);
+			}
+		}
+		words.push(stringBuffer.join(""));
+		return words;
 	};
 
 	/**
@@ -105,7 +147,13 @@ Copyright © 2012 by Samuel Rossille
 	 *            An new Flow, capable of performing layouts of the provided text and css properties
 	 */
 	$.jsText.flow = function(text, css) {
-		return new Flow(text, css);
+		if($.isArray(text)){
+			// formatted text with multiple formatting sections and global css
+			return new Flow(text, css);
+		}else{
+			// special case: text with no formatting sections
+			return new Flow([{text: text, css: {}}], css);
+		}
 	};
 
 	var SPACE_WIDTH_DELTA = INTERNET_EXPLORER_VERSION == null
@@ -114,23 +162,46 @@ Copyright © 2012 by Samuel Rossille
 			? 4
 			: 0.5;
 	
-	var Flow = function(text, css) {
-		var lineHeight = $.jsText.getTextMeasure("a", css).h;
-		var spaceWidth = $.jsText.getTextMeasure("a a", css).w - $.jsText.getTextMeasure("aa", css).w + SPACE_WIDTH_DELTA;
-		var words = $.map($.jsText.splitWords(text), function(word) {
+	function Flow(formattedText, globalcss) {
+		
+		function calculateWordInSection(word, spaceWidth, css){
 			var wordWidth = 0;
 			return {
-				l: $.map(word.split(""), function(letter) {
-					var letterMeasure = $.jsText.getTextMeasure(letter, css);
+				letters: $.map(word, function(letter) {
+					var letterMeasure = letter == " " ? {w: spaceWidth} : $.jsText.getTextMeasure(letter, css);
 					wordWidth += letterMeasure.w;
 					return {
-						e: letter,
+						letter: letter,
 						w: letterMeasure.w
 					};
 				}),
-				e: word,
+				word: word,
 				w: wordWidth
 			};
+		}
+
+		var sections = [];
+		
+		$.each(formattedText, function(section){
+			var text = this.text;
+			var css = $.extend({}, globalcss, this.css);
+			var spaceWidth = $.jsText.getTextMeasure("a a", css).w - $.jsText.getTextMeasure("aa", css).w + SPACE_WIDTH_DELTA;		
+			var h = $.jsText.getTextMeasure("a", css).h;
+			$.each($.jsText.splitSection(text), function(sectionIndex){
+				var sectionWidth = 0;
+				sections.push({
+					words: $.map($.jsText.splitWords(this), function(word) {	
+						var words = calculateWordInSection(word, spaceWidth, css);
+						sectionWidth += words.w;
+						return words;
+					}),
+					text: this,
+					css: css,
+					w: sectionWidth,
+					h: h,
+					spaceWidth: spaceWidth
+				});
+			});
 		});
 		
 		/**
@@ -158,118 +229,239 @@ Copyright © 2012 by Samuel Rossille
 		 *            An instance of Layout, which represents the appropriate layout of the text given the provided options.
 		 */
 		this.layout = function(options) {
-			var width = options.width;
-			if(width == null) throw "Missing option width";
-			var maxLines = null;
-			if(options.maxLines != null) maxLines = options.maxLines;
-			if(options.height != null) {
-				var heightMaxLines = Math.max(Math.floor(options.height / lineHeight), 0);
-				if(maxLines == null || heightMaxLines < maxLines) maxLines = heightMaxLines;
-			}
-			var useThreeDots = true;
-			if(options.useThreeDots == false) useThreeDots = false;
+			/*
+			 * parse options
+			 */
+			if(options.width == null) throw "Missing option width"; // options.width is mandatory
+			options.useThreeDots = (options.useThreeDots == false) ? false : true; // set to true by default
+			options.css = options.css ? options.css : {};
+			
 			
 			var lines = [];
-			var lineWidths = [];
-			var currentLine = "";
-			var remainingSpace = width;
-			var lastLine = (maxLines == 1);
-			var maxLinesUsed = (maxLines == 0);
-
-			var finalizeCurrentLine = function(textRemaining) {
-				if(maxLinesUsed) return;
-				currentLine = trim(currentLine);
-				if(currentLine.length > 0) {
-					if(lastLine && textRemaining && useThreeDots) {
-						currentLine += "...";
-					}
-					lines.push(currentLine);
-					if(options.exactLineWidths) {
-						lineWidths.push($.jsText.getTextMeasure(currentLine, css).w);
-					}
-					else {
-						lineWidths.push(width - remainingSpace);
-					}
-				}
-				remainingSpace = width;
-				currentLine = "";
-				lastLine = (lines.length + 1) == maxLines;
-				maxLinesUsed = lines.length == maxLines;
-				if(lastLine && useThreeDots) {
-					var dotsWidth = $.jsText.getTextMeasure("...", css).w;
-					if(dotsWidth <= remainingSpace) {
-						remainingSpace -= dotsWidth;
-					}
-					else {
-						useThreeDots = false;
-					}
-				}
-			};
+						
+			var currentLine = [];
+			var remainingWidth = options.width;
+			var totalHeight = 0;
 			
-			var lastWordIndex = null;
-			$.each(words, function(wordIndex, word) {
-				if(maxLinesUsed) return false;
-				if(word.w > remainingSpace) { // not enough place for the current word
-					if(word.w > width) { // word does not fit in a line, let's handle it at letter level
-						$.each(word.l, function(letterIndex) {
-							if(maxLinesUsed) return false;
-							if(this.w > remainingSpace) { // not enough place for the current letter
-								if(this.w > width) { // if the letter does not fit in a line, let's drop the letter (limit case handling)
-									return true;
-								}
-								else { // letter fits in a line, let's start the next line
-									finalizeCurrentLine(wordIndex < words.length - 1 || letterIndex < word.l.length);
-									if(maxLinesUsed) return false;
-								}
-							}
-							currentLine += this.e;
-							remainingSpace -= this.w;
-						});
-						currentLine += " ";
-						remainingSpace -= spaceWidth;
-						return true;
+			/*
+			 * Calculates the text and width of a newly created sub-section.
+			 */
+			function finalizeSection(section){
+				var stringBuffer = [];
+				$.each(section.words, function(){
+					section.w += this.w;
+					stringBuffer.push(this.word);
+				});
+				section.text =  stringBuffer.join("");
+				// parameter passed by reference => no return value
+			}
+			
+			/*
+			 * Calculates and return the longest sub-section fitting in the remaining space.
+			 */
+			function createLongestSubsection(currentSection, remainingSpace){
+				// find the longest subsection fitting in the remaining space
+				var consummed = 0;
+				var wordIndex = 0;
+				for(wordIndex in currentSection.words){
+					var word = currentSection.words[wordIndex];
+					if(consummed + word.w > remainingSpace){
+						break;
 					}
-					else { // word fits in a line, let's start the next line
-						finalizeCurrentLine(wordIndex < words.length - 1);
-						if(maxLinesUsed) return false;
-					}
+					consummed += word.w;
 				}
-				currentLine += (word.e + " ");
-				remainingSpace -= (word.w + spaceWidth);
 				
-				lastWordIndex = wordIndex;
-			});
-
-			finalizeCurrentLine(lastWordIndex != null && lastWordIndex < words.length - 1);
+				// if no section can be made to fit then restack the section and return an empty section
+				if(wordIndex == 0){
+					sections.unshift(currentSection);
+					return {empty: true};
+				}
+				
+				// split the current section into two sub-sections
+				var h = currentSection.h;
+				var css = currentSection.css;
+				var spaceWidth = currentSection.spaceWidth;
+				var firstSection = {words: currentSection.words.slice(0, wordIndex), css: css, w: 0, h: h, spaceWidth: spaceWidth};
+				finalizeSection(firstSection);
+				var secondSection = {words: currentSection.words.slice(wordIndex), css: css, w: 0, h: h, spaceWidth: spaceWidth};			
+				finalizeSection(secondSection);
+				
+				// restack the second part
+				sections.unshift(secondSection);
+				
+				// and return the first section
+				return firstSection;
+			}
 			
-			return new Layout(width, options.height, lines, lineWidths, lineHeight);
+			/*
+			 * Calculates the longest string of letters fitting in the remaining space to address the pathological
+			 * case when the first word of the section can not fit in the line width.
+			 */
+			function getSectionWithLettersFitting(remainingSpace){
+				var currentSection = sections.shift();
+				var consummed = 0;
+				var word = currentSection.words[0];
+				var letterIndex = 0;
+				for(letterIndex in word.letters){
+					var letter = word.letters[letterIndex];
+					if(consummed + letter.w > remainingSpace){
+						break;
+					}
+					consummed += letter.w;
+				}
+				
+				// if no letter can fit then do as if the first letter is fitting
+				if(letterIndex == 0){
+					letterIndex = 1;
+				}
+					
+				// split the current Section into two sub-section
+				var h = currentSection.h;
+				var css = currentSection.css;
+				var spaceWidth = currentSection.spaceWidth;
+				
+				var firstWord = calculateWordInSection(word.word.slice(0, letterIndex), spaceWidth, css);
+				var firstSection = {words: [firstWord], css: css, w: 0, h: h, spaceWidth: spaceWidth};
+				finalizeSection(firstSection);
+				
+				var secondWord = calculateWordInSection(word.word.slice(letterIndex), spaceWidth, css);
+				currentSection.words[0] = secondWord;
+				var secondSection = {words: currentSection.words , css: css, w: 0, h: h, spaceWidth: spaceWidth};			
+				finalizeSection(secondSection);
+				
+				// restack the second part
+				sections.unshift(secondSection);
+				
+				// and return the first section
+				return firstSection;
+			}
+			
+			/*
+			 * Returns the largest sub-section not exceeding remaingSpace (creating it if necessary).
+			 */
+			function nextSection(remainingSpace){
+				//  are there any more sections to process ?
+				if(sections.length == 0){
+						return false;
+				}
+				
+				// get the next section
+				var currentSection = sections.shift();
+				
+				// simple case
+				if(currentSection.w < remainingSpace){
+					return currentSection;
+				}
+				
+				return createLongestSubsection(currentSection, remainingSpace);
+			}
+
+			/*
+			 * Adds a section to the current line and calculates the remaining space.
+			 */
+			function addSectionToCurrentLine(section){
+				currentLine.push(section);
+				remainingWidth -= section.w;
+			}
+			
+			/*
+			 * Finalizes a line (calculates width and height) and reset the context to a new line.
+			 */
+			function finalizeCurrentLine(){
+				var lineWidth = 0;
+				var lineHeight = 0;
+				for(var sectionIndex in currentLine){
+					var section = currentLine[sectionIndex];
+					lineWidth += section.w;
+					if(lineHeight < section. h){
+						lineHeight = section.h;
+					}
+				}
+				var newLine = {
+						sections: currentLine,
+						w: lineWidth,
+						h: lineHeight
+					};
+				lines.push(newLine); 
+				totalHeight += lineHeight;
+				
+				// should this be the last line?
+				if(    (options.maxLines && lines.length >= options.maxLines)
+					|| (options.height && totalHeight >= options.height) ){
+					// do we need to add ellipsis (...)?
+					if(sections.length > 0 && options.useThreeDots){
+						var lastSection = newLine.sections[newLine.sections.length - 1];
+						lastSection.text = [lastSection.text.slice(0, lastSection.text.length - 3) , "..."].join("");
+					}
+					return false;
+				}
+				
+				// reset context for new line
+				currentLine = [];
+				remainingWidth = options.width;
+				return true;
+			}
+
+			/*
+			 * the algorithm fitting sections into lines 
+			 */ 
+			fit:{
+				for(var section = nextSection(remainingWidth); section; section = nextSection(remainingWidth)){
+					// at the end of the line: no section can be made to fit in the remaining space
+					if(section.empty){
+						// pathological case when the first word of the section can not fit in the line
+						if(currentLine.length == 0){
+							addSectionToCurrentLine(getSectionWithLettersFitting(remainingWidth));
+						}
+						if(!finalizeCurrentLine()){
+							break fit;
+						}
+						continue;
+					}
+					
+					// standard case: a section can be created to fit the remaining space in the line
+					switch(section.text[0]){
+						case '\n': // control flows to next case !
+						case '\r':
+							// handle line break
+							if(!finalizeCurrentLine()){
+								break fit;
+							}
+							break;
+						default:
+							addSectionToCurrentLine(section);
+					}	
+				}
+				
+				// finalizes the last line
+				finalizeCurrentLine();
+			}
+			
+			// creates and returns a new layout object
+			return new Layout(lines, options.width, options.height, totalHeight);
 		};
 	};
 
 	/**
 	 * Represents the layout of a text under some constraints.
 	 */
-	var Layout = function(width, height, lines, lineWidths, lineHeight) {
+	var Layout = function(lines, width, height, totalHeight) {
 		/**
-		 * The height in pixel of a line in this layout.
-		 */
-		this.lineHeight = lineHeight;
-		/**
-		 * The lines of the layout, as an Array of Strings
+		 * The lines of the layout, as an Array of sections [{string, css}]
 		 */
 		this.lines = lines;
-		/**
-		 * The widths of the lines of the layout, as an Array of Integers
-		 */
-		this.lineWidths = lineWidths;
 		/**
 		 * The width constraint used to generate this layout
 		 */
 		this.width = width;
 		/**
-		 * The width constraint used to generate this, if any, or null otherwise
+		 * The height constraint used to generate this, if any, or null otherwise
 		 */
 		this.height = height;
+		/**
+		 * The total height of the generated paragraph
+		 */
+		this.totalHeight = totalHeight;		
 	};
 	
 	/**
@@ -288,37 +480,59 @@ Copyright © 2012 by Samuel Rossille
 	 *                - lineWidth: the with of the line (value can be an approximation, see exactLineWidths option of the layout method of the Flow class)
 	 */
 	Layout.prototype.render = function(horizontalAlign, verticalAlign, callback) {
-		var y;
-		if(this.height == null || verticalAlign != "bottom" && verticalAlign != "middle") {
-			y = 0;
-		}
-		else {
-			var totalHeight = this.lines.length * this.lineHeight;
-			if(verticalAlign == "bottom") {
-				y = this.height - totalHeight;
-			}
-			else { // middle
-				y = (this.height - totalHeight) / 2;
+		/*
+		 * Calculate starting y position based on vertical alignment parameter
+		 */
+		var y = 0;
+		var height = this.height;
+		if(height != null) {
+			switch(verticalAlign){
+				case "bottom":	
+					y = height - this.totalHeight;
+					break;
+				case "middle":
+					y = (height - this.totalHeight) / 2;
+					break;
+				case "top": 
+					// "top" => control flows to default 
+				default:
+					// No-op
 			}
 		}
 		
-		for(var i = 0; i < this.lines.length; i++) {
-			var line = this.lines[i];
-			var x;
-			if(this.width == null || horizontalAlign != "right" && horizontalAlign != "center") {
-				x = 0;
-			}
-			else {
-				var lineWidth = this.lineWidths[i];
-				if(horizontalAlign == "right") {
-					x = this.width - lineWidth;
+		/*
+		 * render each line
+		 */
+		var width = this.width;
+		$.each(this.lines, function(){
+			/*
+			 * Calculate starting x position based on horizontal alignment parameter
+			 */
+			var x = 0;
+			if(width != null) {
+				switch(horizontalAlign){
+					case "right":
+						x = width - this.w;
+						break;
+					case "center":
+						x = (width - this.w) / 2;
+						break;
+					case "left":
+						// "left" => control flows to default
+					default:
+						// No-op
 				}
-				else { // center
-					x = (this.width - lineWidth) / 2;
-				}
 			}
-			callback(line, x, y, lineWidth);
-			y += this.lineHeight;
-		}
+			
+			/*
+			 * process each section
+			 */
+			$.each(this.sections, function(){
+				// process the user defined rendering function
+				callback(this.text.replace(" ", "&nbsp;"), x, y, this.w, this.css);
+				x += this.w;
+			});
+			y += this.h;
+		});
 	};
 })(jQuery);
