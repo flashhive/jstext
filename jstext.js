@@ -529,7 +529,7 @@
 			 */
 			$.each(this.sections, function(){
 				// process the user defined rendering function
-				callback(this.text.replace(" ", "&nbsp;"), x, y, this.w, this.css);
+				callback(this.text, x, y, this.w, this.css);
 				x += this.w;
 			});
 			y += this.h;
