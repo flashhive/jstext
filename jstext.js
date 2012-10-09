@@ -117,7 +117,7 @@
 	 * @return
 	 *            An array of strings containing the words
 	 */
-	$.jsText.splitWords = function(text) {
+	var splitWords = function(text) {
 		var words = [];
 		var stringBuffer = [];
 		for(var index in text){
@@ -190,7 +190,7 @@
 			$.each($.jsText.splitSection(text), function(sectionIndex){
 				var sectionWidth = 0;
 				sections.push({
-					words: $.map($.jsText.splitWords(this), function(word) {	
+					words: $.map(splitWords(this), function(word) {	
 						var words = calculateWordInSection(word, spaceWidth, css);
 						sectionWidth += words.w;
 						return words;
@@ -533,6 +533,13 @@
 				x += this.w;
 			});
 			y += this.h;
+		});
+	};
+	
+	/* for backward compatibility */
+	$.jsText.splitWords = function(text) {
+		return $.map(text.replace(/[\t\n\r]/g, " ").split(" "), function(word) {
+			return word == "" ? null : word;
 		});
 	};
 })(jQuery);
