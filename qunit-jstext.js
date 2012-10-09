@@ -40,51 +40,107 @@ $(function() {
 		deepEqual($.jsText.splitWords("  hello\r\n\r\n	my	 \n\n\n	world	\n"), ["hello", "my", "world"], "Correct split in a maximal complexity case");
 	});
 	
-	test("flow", function() {
-		var flow = $.jsText.flow("Hello kqjsd jsdq sdjklqsjd qksjd qksdjqksjd qkjdqklsdjqklsdj qldj qsl", {});
+	test("flow behavior", function() {
+		var flow = $.jsText.flow("Hello kqjsd jsdq sdjklqsjd qksjd qksdjqksjd qkjdqklsdjqklsdj qldj zzz", {});
 		
 		var layout = flow.layout({width: 50, maxLines: 2});
-		strictEqual(layout.lines.length, 2, "maxLines option works");
-		strictEqual(layout.lines[1].substring(layout.lines[1].length - 3), "...", "three dots added");
+		
+		var i = 0;
+		layout.render("top", "left", function(text, x, y, w, css) {
+			if(i == 1) {
+				strictEqual(text.substring(text.length - 3), "...", "three dots added");
+			}
+			i++;
+		});
+		
+		strictEqual(i, 2, "maxLines option works");
 
 		var layout = flow.layout({width: 50, maxLines: 2, useThreeDots: false});
-		ok(layout.lines[1].substring(layout.lines[1].length - 3) != "...", "three dots disabling works");
+		
+		i = 0;
+		layout.render("top", "left", function(text, x, y, w, css) {
+			if(i == 1) {
+				ok(text.substring(text.length - 3) != "...", "three dots disabling works");
+			}
+			i++;
+		});
+		
 
 		layout = flow.layout({width: 50});
-		ok(layout.lines[layout.lines.length - 1].substring(layout.lines[layout.lines.length - 1].length - 3) != "...", "no cap, no dots");
+		var lastText;
+		layout.render("top", "left", function(text, x, y, w, css) {
+			lastText = text;
+		});
+		ok(lastText.substring(lastText.length - 3) == "zzz", "No maxlines, no maxHeight => no cap, no dots");
 		
 		var lineHeight = layout.lineHeight;
 		
-		layout = flow.layout({width: 50, height: lineHeight * 3 + 1});
-		strictEqual(layout.lines.length, 3, "height option works near ceil");
-
-		layout = flow.layout({width: 50, height: lineHeight * 4 - 1});
-		strictEqual(layout.lines.length, 3, "height option works near floor");
-		
-		layout = flow.layout({width: 50, maxLines: 2, height: lineHeight * 4 - 1});
-		strictEqual(layout.lines.length, 2, "height option works near floor");
-		
 		layout = flow.layout({width: 1});
-		deepEqual(layout.lines, [], "low limit width (1) produces zero lines without crashing");
+		i = 0;
+		layout.render("top", "left", function(text, x, y, w, css) {
+			i++;
+		});
+		ok(i == 0, "low limit width (1) produces zero lines without crashing");
 	});
 	
-	test("unneeded dots", function() {
-		var flow = $.jsText.flow("Hey!", {});
+	test("Correct overall behavious for just one line", function() {
+		var flow = $.jsText.flow("Hey !", {});
 		var layout = flow.layout({width: 1000, maxLines: 1});
 		layout.render("left", "top", function(line, x, y, lineWidth) {
-			equal(line, "Hey!");
+			equal(line, "Hey !");
 		});
 	})
 	
 	test("negative height", function() {
 		var flow = $.jsText.flow("Hey!", {});
 		var layout = flow.layout({width: 1000, height: -500});
-		equal(layout.lines.length, 0, "Layout should have zero lines");
+		var i = 0;
+		layout.render("top", "left", function(text, x, y, w, css) {
+			i++;
+		});
+		ok(i == 0, "Negative height should produces zero lines without crashing");
 	});
 	
 	test("negative width", function() {
 		var flow = $.jsText.flow("Hey!", {});
 		var layout = flow.layout({width: -500, height: 200});
-		equal(layout.lines.length, 0, "Layout should have zero lines");
+		var i = 0;
+		layout.render("top", "left", function(text, x, y, w, css) {
+			i++;
+		});
+		ok(i == 0, "Negative width should produces zero lines without crashing");
+	});
+	
+	test("flow is stateless", function() {
+		var flow = $.jsText.flow("Hello, i'm now testing two (layout + render) on the same flow with the same parameters in a row. The two rendering should give exactly the same result.", {});
+		
+		var result1 = [];
+		flow.layout({width: 50, maxLines: 3}).render("top", "left", function() {
+			result1.push(arguments);
+		});
+		
+		var result2 = [];
+		flow.layout({width: 50, maxLines: 3}).render("top", "left", function() {
+			result2.push(arguments);
+		});
+
+		deepEqual(result1, result2, "Layout + Rendering gives the same result two times in a row with the same parameters");
+	});
+
+	test("layout is stateless", function() {
+		var flow = $.jsText.flow("Hello, i'm now testing two render on the same layout with the same parameters in a row. The two rendering should give exactly the same result.", {});
+		var layout = flow.layout({width: 50, maxLines: 3});
+		
+		var result1 = [];
+		layout.render("top", "left", function() {
+			result1.push(arguments);
+		});
+		
+		var result2 = [];
+		layout.render("top", "left", function() {
+			result2.push(arguments);
+		});
+
+		deepEqual(result1, result2, "Rendering gives the same result two times in a row with the same parameters");
 	});
 });
