@@ -1,6 +1,6 @@
 /*
 *
-* Copyright © 2012 by Samuel Rossille
+* Copyright @ 2012 by Samuel Rossille
 * 
 * Updates:
 *     * 2 Oct 2012 - Julien Durand: support a flow of formatted sections.
