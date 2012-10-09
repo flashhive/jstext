@@ -29,7 +29,7 @@ $(function() {
 	var flow = $.jsText.flow(text, {});
 	
 	var target = $("#flow-target");
-	var margin = 20;
+	var margin = 0;
 	
 	var updateLayout = function() {
 		var width = Math.max(0, target.width() - margin * 2);
@@ -38,7 +38,7 @@ $(function() {
 		target.children(".line").remove();
 		var top = margin;
 		layout.render("top", "left", function(text, x, y, w, css) {
-			target.append($("<div class='line' style='position: absolute; top: " + y + "px; left: " + x + "px; white-space: nowrap'/>").text(text));
+			target.append($("<div class='line' style='position: absolute; top: " + (margin + y) + "px; left: " + (margin + x) + "px; white-space: nowrap'/>").text(text));
 		});
 	};
 	
