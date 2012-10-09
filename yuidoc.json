@@ -1,0 +1,9 @@
+{
+    "name": "The jsText Library",
+    "description": "Provides a media - agnostic way to handle multiline text rendering in javascript.",
+    "version": "1.0",
+    "url": "http://www.samuelrossille.com/jstext",
+    "options": {
+        "outdir": "generated-doc"
+    }
+}
