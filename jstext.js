@@ -162,9 +162,9 @@
 			? 4
 			: 0.5;
 	
-	function Flow(formattedText, globalcss) {
+	var Flow = function(formattedText, globalcss) {
 		
-		function calculateWordInSection(word, spaceWidth, css){
+		var calculateWordInSection = function(word, spaceWidth, css){
 			var wordWidth = 0;
 			return {
 				letters: $.map(word, function(letter) {
@@ -180,7 +180,7 @@
 			};
 		}
 
-		var sections = [];
+		var flowSections = [];
 		
 		$.each(formattedText, function(section){
 			var text = this.text;
@@ -189,7 +189,7 @@
 			var h = $.jsText.getTextMeasure("a", css).h;
 			$.each($.jsText.splitSection(text), function(sectionIndex){
 				var sectionWidth = 0;
-				sections.push({
+				flowSections.push({
 					words: $.map(splitWords(this), function(word) {	
 						var words = calculateWordInSection(word, spaceWidth, css);
 						sectionWidth += words.w;
@@ -229,6 +229,7 @@
 		 *            An instance of Layout, which represents the appropriate layout of the text given the provided options.
 		 */
 		this.layout = function(options) {
+			var sections = [].concat(flowSections);
 			/*
 			 * parse options
 			 */
@@ -246,7 +247,7 @@
 			/*
 			 * Calculates the text and width of a newly created sub-section.
 			 */
-			function finalizeSection(section){
+			var finalizeSection = function(section){
 				var stringBuffer = [];
 				$.each(section.words, function(){
 					section.w += this.w;
@@ -259,7 +260,7 @@
 			/*
 			 * Calculates and return the longest sub-section fitting in the remaining space.
 			 */
-			function createLongestSubsection(currentSection, remainingSpace){
+			var createLongestSubsection = function(currentSection, remainingSpace){
 				// find the longest subsection fitting in the remaining space
 				var consummed = 0;
 				var wordIndex = 0;
@@ -297,7 +298,7 @@
 			 * Calculates the longest string of letters fitting in the remaining space to address the pathological
 			 * case when the first word of the section can not fit in the line width.
 			 */
-			function getSectionWithLettersFitting(remainingSpace){
+			var getSectionWithLettersFitting = function(remainingSpace){
 				var currentSection = sections.shift();
 				var consummed = 0;
 				var word = currentSection.words[0];
@@ -339,7 +340,7 @@
 			/*
 			 * Returns the largest sub-section not exceeding remaingSpace (creating it if necessary).
 			 */
-			function nextSection(remainingSpace){
+			var nextSection = function(remainingSpace){
 				//  are there any more sections to process ?
 				if(sections.length == 0){
 						return false;
@@ -359,7 +360,7 @@
 			/*
 			 * Adds a section to the current line and calculates the remaining space.
 			 */
-			function addSectionToCurrentLine(section){
+			var addSectionToCurrentLine = function(section){
 				currentLine.push(section);
 				remainingWidth -= section.w;
 			}
@@ -367,7 +368,7 @@
 			/*
 			 * Finalizes a line (calculates width and height) and reset the context to a new line.
 			 */
-			function finalizeCurrentLine(){
+			var finalizeCurrentLine = function(){
 				var lineWidth = 0;
 				var lineHeight = 0;
 				for(var sectionIndex in currentLine){
