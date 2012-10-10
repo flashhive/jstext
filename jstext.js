@@ -8,22 +8,7 @@
 */
 
 (function($, undefined) {
-	$.jsText = $.jsText || {};
-	
-	var textMeasuresCache = {};
-	var MEASURE_HELPER_PROPERTIES = {
-		position: "absolute",
-		top: "10px",
-		padding: "0px",
-		margin: "0px",
-		border: "none",
-		"font-family": "Arial",
-		"font-size": "12px",
-		"font-weight": "normal",
-		"font-style": "normal",
-		"text-decoration": "none"
-	};
-	
+		
 	var INTERNET_EXPLORER_VERSION = (function() {
 		var rv = null; // Return value assumes failure.
 		if (navigator.appName == 'Microsoft Internet Explorer')
@@ -35,50 +20,26 @@
 		}
 		return rv;
 	})();
-
-	/**
-	 * Measures text.
-	 *
-	 * @param text 
-	 *            The text to measure
-	 * @param css 
-	 *            A map of the css properties to use for the measure. The default values are in the MEASURE_HELPER_PROPERTIES constant.
-	 * @return
-	 *            {w: <int>, h: <int>}
-	 */
-	$.jsText.computeTextMeasure = function(text, css) {
-		var span = $("<span/>")
-			.text(text)
-			.css($.extend({}, MEASURE_HELPER_PROPERTIES, css));
-		$(document.body).append(span);
-		
-		var w1 = span.width();
-		span.text(text + text);
-		var w2 = span.width();
-		
-		var result = {
-			w: w2 - w1,
-			h: span.height()
-		};
-		span.remove();
-		return result;
-	};
-
-	/**
-	 * Measures text.
-	 *
-	 * See $.jsText.computeTextMeasure for the contract, but this method caches the results
-	 */
-	$.jsText.getTextMeasure = function(text, css) {
-		var key = css["font-family"] + "/" + css["font-size"] + "/" + css["font-weight"] + "/" + css["font-style"] + "/" + css["text-decoration"] + "/" + text;
-		var cachedResult = textMeasuresCache[key];
-		if(cachedResult == null) {
-			cachedResult = $.jsText.computeTextMeasure(text, css);
-			textMeasuresCache[key] = cachedResult;
-		}
-		return cachedResult;
-	};
 	
+	var SPACE_WIDTH_DELTA = INTERNET_EXPLORER_VERSION == null
+		? 0.5
+		: INTERNET_EXPLORER_VERSION >= 9
+			? 4
+			: 0.5;
+
+	var MEASURE_HELPER_PROPERTIES = {
+		"position": "absolute",
+		"top": "10px",
+		"padding": "0px",
+		"margin": "0px",
+		"border": "none",
+		"font-family": "Arial",
+		"font-size": "12px",
+		"font-weight": "normal",
+		"font-style": "normal",
+		"text-decoration": "none"
+	}
+
 	/**
 	 * Isolates line breaks in distinct sections
 	 * 
@@ -87,7 +48,7 @@
 	 *  @return 
 	 *  		A array of strings
 	 */
-	$.jsText.splitSection = function(text){ 
+	var splitSection = function(text){ 
 		var sections = [];
 		var stringBuffer = [];
 		for(var index in text){
@@ -133,42 +94,88 @@
 		words.push(stringBuffer.join(""));
 		return words;
 	};
-
-	/**
-	 * Creates an instance of flow
-	 * The Flow is the central object which containt all necessary data about a text's properties to be able to perform text layout in different conditions
-	 * It's main and only feature is to create a Layout for given constraints.
-	 * See layout method of the Flow class, and the Layout class.
-	 * @param text 
-	 *            The text to create a flow from
-	 * @param css 
-	 *            A map of the css properties to use for this flow. The default values are in the MEASURE_HELPER_PROPERTIES constant.
-	 * @return
-	 *            An new Flow, capable of performing layouts of the provided text and css properties
-	 */
-	$.jsText.flow = function(text, css) {
+	
+	var JsText = function(defaultCss) {
+		var measureHelperCss = $.extend({}, MEASURE_HELPER_PROPERTIES);
+		if(defaultCss) {
+			$.extend(measureHelperCss, defaultCss);
+		}
+		
+		this.textMeasuresCache = {};
+		this.measureHelperCss = measureHelperCss;
+	};
+	
+		/**
+		 * Measures text.
+		 *
+		 * @param text 
+		 *            The text to measure
+		 * @param css 
+		 *            A map of the css properties to use for the measure. The default values are in the MEASURE_HELPER_PROPERTIES constant.
+		 * @return
+		 *            {w: <int>, h: <int>}
+		 */
+	JsText.prototype.computeTextMeasure = function(text, css) {
+		var span = $("<span/>")
+			.text(text)
+			.css($.extend({}, this.measureHelperCss, css));
+		$(document.body).append(span);
+		
+		var w1 = span.width();
+		span.text(text + text);
+		var w2 = span.width();
+		
+		var result = {
+			w: w2 - w1,
+			h: span.height()
+		};
+		span.remove();
+		return result;
+	};
+	
+		/**
+		 * Measures text.
+		 *
+		 * See $.jsText.computeTextMeasure for the contract, but this method caches the results
+		 */
+	JsText.prototype.getTextMeasure = function(text, css) {
+		var key = css["font-family"] + "/" + css["font-size"] + "/" + css["font-weight"] + "/" + css["font-style"] + "/" + css["text-decoration"] + "/" + text;
+		var cachedResult = this.textMeasuresCache[key];
+		if(cachedResult == null) {
+			cachedResult = this.computeTextMeasure(text, css);
+			this.textMeasuresCache[key] = cachedResult;
+		}
+		return cachedResult;
+	};
+	
+		/**
+		 * Creates an instance of flow
+		 * The Flow is the central object which containt all necessary data about a text's properties to be able to perform text layout in different conditions
+		 * It's main and only feature is to create a Layout for given constraints.
+		 * See layout method of the Flow class, and the Layout class.
+		 * @param text 
+		 *            The text to create a flow from
+		 * @param css 
+		 *            A map of the css properties to use for this flow. The default values are....
+		 * @return
+		 *            An new Flow, capable of performing layouts of the provided text and css properties
+		 */
+	JsText.prototype.flow = function(text, css) {
 		if($.isArray(text)){
 			// formatted text with multiple formatting sections and global css
-			return new Flow(text, css);
+			return new Flow(this, text, css);
 		}else{
 			// special case: text with no formatting sections
-			return new Flow([{text: text, css: {}}], css);
+			return new Flow(this, [{text: text, css: {}}], css);
 		}
 	};
 
-	var SPACE_WIDTH_DELTA = INTERNET_EXPLORER_VERSION == null
-		? 0.5
-		: INTERNET_EXPLORER_VERSION >= 9
-			? 4
-			: 0.5;
-	
-	var Flow = function(formattedText, globalcss) {
-		
+	var Flow = function(jsText, formattedText, globalcss) {
 		var calculateWordInSection = function(word, spaceWidth, css){
 			var wordWidth = 0;
 			return {
 				letters: $.map(word, function(letter) {
-					var letterMeasure = letter == " " ? {w: spaceWidth} : $.jsText.getTextMeasure(letter, css);
+					var letterMeasure = letter == " " ? {w: spaceWidth} : jsText.getTextMeasure(letter, css);
 					wordWidth += letterMeasure.w;
 					return {
 						letter: letter,
@@ -185,9 +192,9 @@
 		$.each(formattedText, function(section){
 			var text = this.text;
 			var css = $.extend({}, globalcss, this.css);
-			var spaceWidth = $.jsText.getTextMeasure("a a", css).w - $.jsText.getTextMeasure("aa", css).w + SPACE_WIDTH_DELTA;		
-			var h = $.jsText.getTextMeasure("a", css).h;
-			$.each($.jsText.splitSection(text), function(sectionIndex){
+			var spaceWidth = jsText.getTextMeasure("a a", css).w - jsText.getTextMeasure("aa", css).w + SPACE_WIDTH_DELTA;		
+			var h = jsText.getTextMeasure("a", css).h;
+			$.each(splitSection(text), function(sectionIndex){
 				var sectionWidth = 0;
 				flowSections.push({
 					words: $.map(splitWords(this), function(word) {	
@@ -537,10 +544,15 @@
 		});
 	};
 	
+	
+	$.jsText = new JsText();
+	
 	/* for backward compatibility */
 	$.jsText.splitWords = function(text) {
 		return $.map(text.replace(/[\t\n\r]/g, " ").split(" "), function(word) {
 			return word == "" ? null : word;
 		});
 	};
+	
+	
 })(jQuery);
