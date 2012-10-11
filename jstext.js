@@ -390,12 +390,22 @@
 						w: lineWidth,
 						h: lineHeight
 					};
+				
+				// are we going beyond the max height ?
+				if (options.height && totalHeight + lineHeight >= options.height){
+					// do we need to add ellipsis (...)?
+					if(sections.length > 0 && options.useThreeDots){
+						var lastSection = newLine.sections[newLine.sections.length - 1];
+						lastSection.text = [lastSection.text.slice(0, lastSection.text.length - 3) , "..."].join("");
+					}
+				    return false;
+				}
+				
 				lines.push(newLine); 
 				totalHeight += lineHeight;
 				
 				// should this be the last line?
-				if(    (options.maxLines && lines.length >= options.maxLines)
-					|| (options.height && totalHeight >= options.height) ){
+				if(options.maxLines && lines.length >= options.maxLines){
 					// do we need to add ellipsis (...)?
 					if(sections.length > 0 && options.useThreeDots){
 						var lastSection = newLine.sections[newLine.sections.length - 1];
@@ -414,6 +424,9 @@
 			 * the algorithm fitting sections into lines 
 			 */ 
 			fit:{
+				if(options.width <= 1){
+					break fit;
+				}
 				for(var section = nextSection(remainingWidth); section; section = nextSection(remainingWidth)){
 					// at the end of the line: no section can be made to fit in the remaining space
 					if(section.empty){
