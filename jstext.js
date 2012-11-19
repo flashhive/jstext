@@ -87,9 +87,9 @@ Copyright © 2012 by Samuel Rossille
 	 *            An array of strings containing the words
 	 */
 	$.jsText.splitWords = function(text) {
-		return $.map(text.replace(/[\t\n\r]/g, " ").split(" "), function(word) {
+		return text ? $.map(text.replace(/[\t\n\r]/g, " ").split(" "), function(word) {
 			return word == "" ? null : word;
-		});
+		}) : [];
 	};
 
 	/**
