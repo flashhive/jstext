@@ -9,7 +9,7 @@
 <li>More generally, precicely control and monitor the rendering of the text in your application or page.</li>
 </ul>
 <h2>Demo!</h2>
-Check out this: http://www.samuelrossille.com/home/index.html
+Check out this: http://www.samuelrossille.com/home/jstext.html
 <br>
 
 <h2>Code sample</h2>
